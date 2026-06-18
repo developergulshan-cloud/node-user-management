@@ -5,34 +5,35 @@
         {
             "id": "create-user",
             "name": "Create User",
+            "description": "Create a new user in the system",
             "endpoint": "/users",
             "method": "POST",
             "permission": "user.create",
             "type": "CRUD",
             "operation": "CREATE",
-            "table": "students",
+            "table": "um_users",
+            "hooks": {
+                "before": [
+                    "hashPassword"
+                ]
+            },
             "columns": [
                 "first_name",
                 "last_name",
                 "email",
-                "phone",
-                "gender",
-                "date_of_birth",
-                "address"
+                "password"
             ],
             "validation": {
                 "first_name": "required|string|min:1|max:100",
                 "last_name": "string|max:100",
                 "email": "required|email|max:255",
-                "phone": "string|max:20",
-                "gender": "string|max:10",
-                "date_of_birth": "date",
-                "address": "string"
+                "password": "required|string|min:6|max:255"
             }
         },
         {
             "id": "get-users",
             "name": "Get Users",
+            "description": "Retrieve a list of users with optional filters and pagination",
             "endpoint": "/users",
             "method": "GET",
             "permission": "user.read",
@@ -50,20 +51,20 @@
         {
             "id": "update-user",
             "name": "Update User",
+            "description": "Update an existing user's information",
             "endpoint": "/user/:id",
             "method": "PUT",
             "permission": "user.update",
             "type": "CRUD",
             "operation": "UPDATE",
-            "table": "students",
+            "table": "um_users",
+            "middlewares": [
+                "validateUserUpdate"
+            ],
             "columns": [
                 "first_name",
                 "last_name",
-                "email",
-                "phone",
-                "gender",
-                "date_of_birth",
-                "address"
+                "email"
             ],
             "params": [
                 {
@@ -84,11 +85,64 @@
         {
             "id": "delete-user",
             "name": "Delete User",
+            "description": "Delete an existing user from the system",
             "endpoint": "/user/delete/:id",
             "method": "DELETE",
             "type": "CRUD",
             "operation": "DELETE",
-            "table": "students"
+            "table": "um_users"
+        },
+        {
+            "id": "create-role",
+            "name": "Create Role",
+            "description": "Create a new role in the system",
+            "endpoint": "role",
+            "method": "POST",
+            "type": "CRUD",
+            "operation": "CREATE",
+            "table": "um_roles",
+            "columns": [
+                "name",
+                "description"
+            ],
+            "validation": {
+                "name": "required|string|max:100",
+                "description": "string|max:255"
+            }
+        },
+        {
+            "id": "update-role",
+            "name": "Update Role",
+            "description": "Update an existing role",
+            "endpoint": "/role/:id",
+            "method": "PUT",
+            "type": "CRUD",
+            "operation": "UPDATE",
+            "table": "um_roles",
+            "params": [
+                {
+                    "name": "id",
+                    "source": "params"
+                }
+            ],
+            "columns": [
+                "name",
+                "description"
+            ],
+            "validation": {
+                "name": "string|max:100",
+                "description": "string|max:255"
+            }
+        },
+        {
+            "id": "delete-role",
+            "name": "Delete Role",
+            "description": "Delete an existing role",
+            "endpoint": "/role/:id",
+            "method": "DELETE",
+            "type": "CRUD",
+            "operation": "DELETE",
+            "table": "um_roles"
         },
         {
             "id": "create-order",

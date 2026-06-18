@@ -2,8 +2,20 @@ import express from 'express';
 const dabAPI = require('dynamic-api-builder-js');
 // const mysqlapis = require('./api-config.json')
 import mysqlapis from '../api-config.json';
+import { DatabaseConfig, DatabaseConnection } from './config/database';
 const app = express();
 app.use(express.json());
+
+// INITIALIZE USER MANAGEMENT TABLE
+let database: DatabaseConfig = {
+  host: 'localhost',
+  user: 'gulshan',
+  password: 'Gulshan@814144',
+  database: 'user_management',
+}
+
+let um_table_migration = new DatabaseConnection(database);
+um_table_migration.initialize();
 
 // INITIALIZE DAB API
 const mysqlconfig = {

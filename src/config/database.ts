@@ -41,71 +41,71 @@ class DatabaseConnection {
 
     private async createTables(): Promise<void> {
         const createUsersTable = `
-      CREATE TABLE IF NOT EXISTS um_users (
-        id VARCHAR(36) PRIMARY KEY,
-        email VARCHAR(255) UNIQUE NOT NULL,
-        password VARCHAR(255) NOT NULL,
-        first_name VARCHAR(100),
-        last_name VARCHAR(100),
-        is_active BOOLEAN DEFAULT true,
-        reset_token VARCHAR(255),
-        reset_token_expiry DATETIME,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        INDEX idx_email (email),
-        INDEX idx_reset_token (reset_token)
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-    `;
+            CREATE TABLE IF NOT EXISTS um_users (
+                id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                email VARCHAR(255) UNIQUE NOT NULL,
+                password VARCHAR(255) NOT NULL,
+                first_name VARCHAR(100),
+                last_name VARCHAR(100),
+                is_active BOOLEAN DEFAULT true,
+                reset_token VARCHAR(255),
+                reset_token_expiry DATETIME,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                INDEX idx_email (email),
+                INDEX idx_reset_token (reset_token)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+            `;
 
         const createSessionsTable = `
-      CREATE TABLE IF NOT EXISTS um_sessions (
-        session_id VARCHAR(128) COLLATE utf8mb4_bin NOT NULL,
-        expires INT(11) UNSIGNED NOT NULL,
-        data MEDIUMTEXT COLLATE utf8mb4_bin,
-        PRIMARY KEY (session_id)
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-    `;
+            CREATE TABLE IF NOT EXISTS um_sessions (
+                session_id VARCHAR(128) COLLATE utf8mb4_bin NOT NULL,
+                expires INT(11) UNSIGNED NOT NULL,
+                data MEDIUMTEXT COLLATE utf8mb4_bin,
+                PRIMARY KEY (session_id)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+            `;
 
         const createOTPsTable = `
-      CREATE TABLE IF NOT EXISTS um_otps (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        email VARCHAR(255) NOT NULL,
-        otp VARCHAR(10) NOT NULL,
-        purpose VARCHAR(50) NOT NULL DEFAULT 'login',
-        expires_at DATETIME NOT NULL,
-        attempts INT DEFAULT 0,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        UNIQUE KEY unique_email_purpose (email, purpose),
-        INDEX idx_email (email),
-        INDEX idx_expires (expires_at)
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-    `;
+            CREATE TABLE IF NOT EXISTS um_otps (
+                id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                email VARCHAR(255) NOT NULL,
+                otp VARCHAR(10) NOT NULL,
+                purpose VARCHAR(50) NOT NULL DEFAULT 'login',
+                expires_at DATETIME NOT NULL,
+                attempts INT DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE KEY unique_email_purpose (email, purpose),
+                INDEX idx_email (email),
+                INDEX idx_expires (expires_at)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+            `;
 
         const createRolesTable = `
-      CREATE TABLE IF NOT EXISTS um_roles (
-        id VARCHAR(36) PRIMARY KEY,
-        name VARCHAR(50) UNIQUE NOT NULL,
-        description TEXT,
-        permissions JSON NOT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        INDEX idx_name (name)
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-    `;
+            CREATE TABLE IF NOT EXISTS um_roles (
+                id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                name VARCHAR(50) UNIQUE NOT NULL,
+                description TEXT,
+                permissions JSON NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                INDEX idx_name (name)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+            `;
 
         const createUserRolesTable = `
-      CREATE TABLE IF NOT EXISTS um_user_roles (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        user_id VARCHAR(36) NOT NULL,
-        role_id VARCHAR(36) NOT NULL,
-        assigned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        UNIQUE KEY unique_user_role (user_id, role_id),
-        FOREIGN KEY (user_id) REFERENCES um_users(id) ON DELETE CASCADE,
-        FOREIGN KEY (role_id) REFERENCES um_roles(id) ON DELETE CASCADE,
-        INDEX idx_user_id (user_id),
-        INDEX idx_role_id (role_id)
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-    `;
+            CREATE TABLE IF NOT EXISTS um_user_roles (
+                id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                user_id BIGINT UNSIGNED NOT NULL,
+                role_id BIGINT UNSIGNED NOT NULL,
+                assigned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE KEY unique_user_role (user_id, role_id),
+                FOREIGN KEY (user_id) REFERENCES um_users(id) ON DELETE CASCADE,
+                FOREIGN KEY (role_id) REFERENCES um_roles(id) ON DELETE CASCADE,
+                INDEX idx_user_id (user_id),
+                INDEX idx_role_id (role_id)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+            `;
 
         if (!this.pool) {
             throw new Error('Pool is not initialized');
@@ -117,6 +117,8 @@ class DatabaseConnection {
             await this.pool.query(createOTPsTable);
             await this.pool.query(createRolesTable);
             await this.pool.query(createUserRolesTable);
+
+            console.log('Tables created or verified successfully');
         } catch (error) {
             console.error('Error creating tables:', error);
             throw error;
