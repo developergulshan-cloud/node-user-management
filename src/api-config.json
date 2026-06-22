@@ -145,6 +145,50 @@
             "table": "um_roles"
         },
         {
+            "id": "create-permission",
+            "name": "Create Permission",
+            "description": "Create a new permission in the system",
+            "endpoint": "/permissions",
+            "method": "POST",
+            "type": "CRUD",
+            "operation": "CREATE",
+            "table": "um_permissions",
+            "columns": [
+                "name",
+                "description",
+                "module",
+                "action"
+            ],
+            "validation": {
+                "name": "required|string|max:100",
+                "description": "string|max:255",
+                "module": "required|string|max:100",
+                "action": "required|string|max:50"
+            }
+        },
+        {
+            "id": "create-permission",
+            "name": "Create Permission",
+            "description": "Create a new permission in the system",
+            "endpoint": "/permissions",
+            "method": "POST",
+            "type": "CRUD",
+            "operation": "CREATE",
+            "table": "um_permissions",
+            "columns": [
+                "name",
+                "description",
+                "module",
+                "action"
+            ],
+            "validation": {
+                "name": "required|string|max:100",
+                "description": "string|max:255",
+                "module": "required|string|max:100",
+                "action": "required|string|max:50"
+            }
+        },
+        {
             "id": "create-order",
             "name": "Create Order (Transactional)",
             "endpoint": "/orders",
@@ -271,6 +315,52 @@
                 "to_account": "required|number",
                 "amount": "required|number"
             }
+        },
+        {
+            "id": "update-permission",
+            "name": "Update Permission",
+            "description": "Update an existing permission",
+            "endpoint": "/permissions/:id",
+            "method": "PUT",
+            "permission": "permission.update",
+            "type": "CRUD",
+            "operation": "UPDATE",
+            "table": "um_permissions",
+            "params": [
+                {
+                    "name": "id",
+                    "source": "params"
+                }
+            ],
+            "columns": [
+                "name",
+                "description",
+                "module",
+                "action"
+            ],
+            "validation": {
+                "name": "string|max:100",
+                "description": "string|max:255",
+                "module": "string|max:100",
+                "action": "string|max:50"
+            }
+        },
+        {
+            "id": "delete-permission",
+            "name": "Delete Permission",
+            "description": "Delete an existing permission",
+            "endpoint": "/permissions/:id",
+            "method": "DELETE",
+            "permission": "permission.delete",
+            "type": "CRUD",
+            "operation": "DELETE",
+            "table": "um_permissions",
+            "params": [
+                {
+                    "name": "id",
+                    "source": "params"
+                }
+            ]
         },
         {
             "id": "user-stats",
