@@ -69,6 +69,7 @@ class DatabaseConnection {
 
   constructor(config: DatabaseConfig) {
     this.config = {
+      port: 3306,
       host: config.host ?? 'localhost',
       user: config.user ?? 'root',
       password: config.password ?? '',
@@ -81,6 +82,7 @@ class DatabaseConnection {
 
   async initialize(): Promise<void> {
     try {
+      console.log('Initializing database connection...',this.config);
       this.pool = mysql.createPool(this.config);
       await this.createTables();
       console.log('Database initialized successfully');

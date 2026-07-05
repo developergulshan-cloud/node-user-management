@@ -8,8 +8,10 @@ import { SessionStore } from './config/session';
 import { initUserModel } from './models/userModel';
 import passport from './config/passport';
 import authRoutes from './routes/authRoutes';
-
-const dabAPI = require('dynamic-api-builder-js');
+import dabApi from 'dynamic-api-builder-js';
+import { DabConfig, DabRouterOptions } from 'dynamic-api-builder-js';
+import cookieParser from 'cookie-parser';
+// const dabAPI = require('dynamic-api-builder-js');
 const mysqlapis = require('./api-config.json');
 
 
@@ -24,22 +26,13 @@ export class AppServer {
   constructor(private databaseConfig?: DatabaseConfig) {
     this.app = express();
     this.port = 3000;
-    this.isProd = true;
+    this.isProd = false;
     // DB and session store initialization is done in `init()`
   }
 
   public async init(): Promise<void> {
     this.dbConnection = new DatabaseConnection(this.databaseConfig || {} as DatabaseConfig);
     await this.dbConnection.initialize();
-
-    // let sessionStoreInstance: SessionStore;
-    // try {
-    //   sessionStoreInstance = new SessionStore(this.dbConnection.getPool());
-    // } catch (err) {
-    //   console.error('Failed to initialize session store:', err);
-    //   throw err;
-    // }
-    // this.sessionStore = sessionStoreInstance.getStore();
 
     this.sessionStore = new SessionStore(this.dbConnection.getPool()).getStore();
 
@@ -53,6 +46,7 @@ export class AppServer {
 
   private configureMiddleware() {
     this.app.use(express.json());
+    this.app.use(cookieParser());
     this.app.use(express.urlencoded({ extended: true }));
 
     this.app.use(
@@ -91,7 +85,7 @@ export class AppServer {
   }
 
   private configureApis() {
-    const mysqlconfig = {
+    const mysqlconfig: DabConfig = {
       type: 'mysql',
       database: {
         host: this.databaseConfig?.host,
@@ -103,7 +97,7 @@ export class AppServer {
       apis: mysqlapis.apis,
     };
 
-    const mysqlApiConfig = dabAPI(mysqlconfig).router;
+    const mysqlApiConfig = dabApi(mysqlconfig).router;
     this.app.use('/api', mysqlApiConfig);
   }
 

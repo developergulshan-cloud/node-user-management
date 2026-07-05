@@ -6,7 +6,7 @@
             "id": "create-user",
             "name": "Create User",
             "description": "Create a new user in the system",
-            "endpoint": "/users",
+            "endpoint": "/user",
             "method": "POST",
             "permission": "user.create",
             "type": "CRUD",
@@ -31,10 +31,10 @@
             }
         },
         {
-            "id": "get-users",
-            "name": "Get Users",
-            "description": "Retrieve a list of users with optional filters and pagination",
-            "endpoint": "/users",
+            "id": "get-user",
+            "name": "Get User",
+            "description": "Retrieve a specific user by ID",
+            "endpoint": "/user/:id",
             "method": "GET",
             "permission": "user.read",
             "type": "CRUD",
@@ -47,6 +47,29 @@
                 "email"
             ],
             "pagination": true
+        },
+        {
+            "id": "get-user-details",
+            "name": "Get User Details",
+            "description": "Retrieve detailed information about a specific user",
+            "endpoint": "/me",
+            "method": "GET",
+            "permission": "user.read",
+            "type": "CRUD",
+            "operation": "READ",
+            "table": "um_users",
+            "filters": [
+                "id"
+            ],
+            "filterConfig": {
+                "id": {
+                    "operator": "<"
+                }
+            },
+            "columns": [
+                "*"
+            ],
+            "pagination": false
         },
         {
             "id": "update-user",
