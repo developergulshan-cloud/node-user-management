@@ -1,6 +1,6 @@
 import passport from 'passport';
 import { Strategy as LocalStrategy } from 'passport-local';
-import bcrypt from 'bcrypt';
+import * as bcrypt from 'bcryptjs';
 import { findUserByEmail, findUserById } from '../models/userModel';
 import { toSafeUser } from '../types/user';
 

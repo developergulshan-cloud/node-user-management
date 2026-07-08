@@ -2,8 +2,8 @@ export interface UmUser {
   id: number;
   email: string;
   password: string;
-  first_name: string | null;
-  last_name: string | null;
+  name: string | null;
+
   is_active: number | null;
   reset_token: string | null;
   reset_token_expiry: Date | null;
@@ -15,15 +15,26 @@ export interface UmUser {
 export interface SafeUser {
   id: number;
   email: string;
-  first_name: string | null;
-  last_name: string | null;
+  name: string | null;
+}
+
+export interface SessionConfig {
+  name?: string;
+  secret?: string;
+  resave?: boolean;
+  saveUninitialized?: boolean;
+  cookie?: {
+    httpOnly?: boolean;
+    secure?: boolean;
+    maxAge?: number;
+    sameSite?: 'strict' | 'lax' | 'none';
+  };
 }
 
 export function toSafeUser(user: UmUser): SafeUser {
   return {
     id: user.id,
     email: user.email,
-    first_name: user.first_name,
-    last_name: user.last_name,
+    name: user.name,
   };
 }

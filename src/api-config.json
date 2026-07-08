@@ -18,8 +18,7 @@
                 ]
             },
             "columns": [
-                "first_name",
-                "last_name",
+                "name",
                 "email",
                 "password"
             ],
@@ -85,8 +84,7 @@
                 "validateUserUpdate"
             ],
             "columns": [
-                "first_name",
-                "last_name",
+                "name",
                 "email"
             ],
             "params": [

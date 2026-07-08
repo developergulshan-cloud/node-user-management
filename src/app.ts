@@ -11,6 +11,7 @@ import authRoutes from './routes/authRoutes';
 import dabApi from 'dynamic-api-builder-js';
 import { DabConfig, DabRouterOptions } from 'dynamic-api-builder-js';
 import cookieParser from 'cookie-parser';
+import { SessionConfig } from './types/user';
 // const dabAPI = require('dynamic-api-builder-js');
 const mysqlapis = require('./api-config.json');
 
@@ -22,11 +23,13 @@ export class AppServer {
   private isProd: boolean;
   private sessionStore: any;
   private dbConnection?: DatabaseConnection;
+  private sessionConfig: SessionConfig;
 
-  constructor(private databaseConfig?: DatabaseConfig) {
+  constructor(private databaseConfig?: DatabaseConfig, sessionConfig?: SessionConfig) {
     this.app = express();
     this.port = 3000;
     this.isProd = false;
+    this.sessionConfig = sessionConfig || {};
     // DB and session store initialization is done in `init()`
   }
 
@@ -56,21 +59,21 @@ export class AppServer {
       })
     );
 
-    this.app.use(
-      session({
-        name: 'connect.sid',
-        secret: process.env.SESSION_SECRET || 'dev-secret',
-        store: this.sessionStore,
-        resave: false,
-        saveUninitialized: false,
-        cookie: {
-          httpOnly: true,
-          secure: this.isProd,
-          maxAge: 24 * 60 * 60 * 1000,
-          sameSite: 'lax',
-        },
-      })
-    );
+    const sessionConfig = {
+      name: this.sessionConfig.name || 'connect.sid',
+      secret: this.sessionConfig.secret || process.env.SESSION_SECRET || 'dev-secret',
+      store: this.sessionStore,
+      resave: this.sessionConfig.resave !== undefined ? this.sessionConfig.resave : false,
+      saveUninitialized: this.sessionConfig.saveUninitialized !== undefined ? this.sessionConfig.saveUninitialized : false,
+      cookie: {
+        httpOnly: this.sessionConfig.cookie?.httpOnly !== undefined ? this.sessionConfig.cookie.httpOnly : true,
+        secure: this.sessionConfig.cookie?.secure !== undefined ? this.sessionConfig.cookie.secure : this.isProd,
+        maxAge: this.sessionConfig.cookie?.maxAge || 24 * 60 * 60 * 1000,
+        sameSite: this.sessionConfig.cookie?.sameSite || 'lax' as const,
+      },
+    };
+
+    this.app.use(session(sessionConfig));
 
     this.app.use(passport.initialize());
     this.app.use(passport.session());
@@ -98,7 +101,8 @@ export class AppServer {
     };
 
     const mysqlApiConfig = dabApi(mysqlconfig).router;
-    this.app.use('/api', mysqlApiConfig);
+    // this.app.use('/api', mysqlApiConfig);
+    return mysqlApiConfig;
   }
 
   public listen(callback?: () => void) {
@@ -109,6 +113,7 @@ export class AppServer {
     });
   }
 }
+ 
 
 // Preserve existing startup behavior when file is run directly
 if (require.main === module) {
@@ -118,7 +123,21 @@ if (require.main === module) {
     "password": "Gulshan@814144",
     "database": "user_management",
   };
-  const server = new AppServer(databaseConfig);
+
+  const sessionConfig: SessionConfig = {
+    name: 'connect.sid',
+    secret: process.env.SESSION_SECRET || 'dev-secret',
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      httpOnly: true,
+      secure: false,
+      maxAge: 24 * 60 * 60 * 1000,
+      sameSite: 'lax',
+    },
+  };
+
+  const server = new AppServer(databaseConfig, sessionConfig);
   (async () => {
     try {
       await server.init();

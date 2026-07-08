@@ -1,50 +1,50 @@
 import nodemailer, { Transporter, SendMailOptions } from 'nodemailer';
 
 export interface SmtpAuthConfig {
-    user: string;
-    pass: string;
+  user: string;
+  pass: string;
 }
 
 export interface EmailServiceConfig {
-    host?: string;
-    port?: number | string;
-    secure?: boolean;
-    auth?: SmtpAuthConfig;
+  host?: string;
+  port?: number | string;
+  secure?: boolean;
+  auth?: SmtpAuthConfig;
 }
 
 export class EmailService {
-    private config: EmailServiceConfig;
-    private from: string | undefined;
-    private appUrl: string | undefined;
-    private transporter: Transporter;
+  private config: EmailServiceConfig;
+  private from: string | undefined;
+  private appUrl: string | undefined;
+  private transporter: Transporter;
 
-    constructor(config?: EmailServiceConfig) {
-        this.config = config || {
-            host: process.env.SMTP_HOST,
-            port: process.env.SMTP_PORT,
-            secure: false,
-            auth: {
-                user: process.env.SMTP_USER as string,
-                pass: process.env.SMTP_PASS as string
-            }
-        };
+  constructor(config?: EmailServiceConfig) {
+    this.config = config || {
+      host: process.env.SMTP_HOST,
+      port: process.env.SMTP_PORT,
+      secure: false,
+      auth: {
+        user: process.env.SMTP_USER as string,
+        pass: process.env.SMTP_PASS as string
+      }
+    };
 
-        this.from = process.env.EMAIL_FROM;
-        this.appUrl = process.env.APP_URL;
+    this.from = process.env.EMAIL_FROM;
+    this.appUrl = process.env.APP_URL;
 
-        this.transporter = nodemailer.createTransport(this.config as any);
-    }
+    this.transporter = nodemailer.createTransport(this.config as any);
+  }
 
-    /**
-     * Send welcome email
-     */
-    async sendWelcomeEmail(email: string, firstName?: string): Promise<void> {
-        try {
-            const mailOptions: SendMailOptions = {
-                from: this.from,
-                to: email,
-                subject: 'Welcome to Our Application',
-                html: `
+  /**
+   * Send welcome email
+   */
+  async sendWelcomeEmail(email: string, firstName?: string): Promise<void> {
+    try {
+      const mailOptions: SendMailOptions = {
+        from: this.from,
+        to: email,
+        subject: 'Welcome to Our Application',
+        html: `
           <!DOCTYPE html>
           <html>
           <head>
@@ -73,28 +73,28 @@ export class EmailService {
           </body>
           </html>
         `
-            };
+      };
 
-            await this.transporter.sendMail(mailOptions);
-            console.log('Welcome email sent to:', email);
-        } catch (error) {
-            console.error('Error sending welcome email:', error);
-            throw error;
-        }
+      await this.transporter.sendMail(mailOptions);
+      console.log('Welcome email sent to:', email);
+    } catch (error) {
+      console.error('Error sending welcome email:', error);
+      throw error;
     }
+  }
 
-    /**
-     * Send password reset email
-     */
-    async sendPasswordResetEmail(email: string, resetToken: string, firstName?: string): Promise<void> {
-        try {
-            const resetUrl = `${this.appUrl}/reset-password?token=${resetToken}`;
+  /**
+   * Send password reset email
+   */
+  async sendPasswordResetEmail(email: string, resetToken: string, firstName?: string): Promise<void> {
+    try {
+      const resetUrl = `${this.appUrl}/reset-password?token=${resetToken}`;
 
-            const mailOptions: SendMailOptions = {
-                from: this.from,
-                to: email,
-                subject: 'Password Reset Request',
-                html: `
+      const mailOptions: SendMailOptions = {
+        from: this.from,
+        to: email,
+        subject: 'Password Reset Request',
+        html: `
           <!DOCTYPE html>
           <html>
           <head>
@@ -132,26 +132,26 @@ export class EmailService {
           </body>
           </html>
         `
-            };
+      };
 
-            await this.transporter.sendMail(mailOptions);
-            console.log('Password reset email sent to:', email);
-        } catch (error) {
-            console.error('Error sending password reset email:', error);
-            throw error;
-        }
+      await this.transporter.sendMail(mailOptions);
+      console.log('Password reset email sent to:', email);
+    } catch (error) {
+      console.error('Error sending password reset email:', error);
+      throw error;
     }
+  }
 
-    /**
-     * Send account activation email
-     */
-    async sendActivationEmail(email: string, firstName?: string): Promise<void> {
-        try {
-            const mailOptions: SendMailOptions = {
-                from: this.from,
-                to: email,
-                subject: 'Account Activated',
-                html: `
+  /**
+   * Send account activation email
+   */
+  async sendActivationEmail(email: string, firstName?: string): Promise<void> {
+    try {
+      const mailOptions: SendMailOptions = {
+        from: this.from,
+        to: email,
+        subject: 'Account Activated',
+        html: `
           <!DOCTYPE html>
           <html>
           <head>
@@ -177,26 +177,26 @@ export class EmailService {
           </body>
           </html>
         `
-            };
+      };
 
-            await this.transporter.sendMail(mailOptions);
-            console.log('Activation email sent to:', email);
-        } catch (error) {
-            console.error('Error sending activation email:', error);
-            throw error;
-        }
+      await this.transporter.sendMail(mailOptions);
+      console.log('Activation email sent to:', email);
+    } catch (error) {
+      console.error('Error sending activation email:', error);
+      throw error;
     }
+  }
 
-    /**
-     * Send account deactivation email
-     */
-    async sendDeactivationEmail(email: string, firstName?: string): Promise<void> {
-        try {
-            const mailOptions: SendMailOptions = {
-                from: this.from,
-                to: email,
-                subject: 'Account Deactivated',
-                html: `
+  /**
+   * Send account deactivation email
+   */
+  async sendDeactivationEmail(email: string, firstName?: string): Promise<void> {
+    try {
+      const mailOptions: SendMailOptions = {
+        from: this.from,
+        to: email,
+        subject: 'Account Deactivated',
+        html: `
           <!DOCTYPE html>
           <html>
           <head>
@@ -222,31 +222,31 @@ export class EmailService {
           </body>
           </html>
         `
-            };
+      };
 
-            await this.transporter.sendMail(mailOptions);
-            console.log('Deactivation email sent to:', email);
-        } catch (error) {
-            console.error('Error sending deactivation email:', error);
-            throw error;
-        }
+      await this.transporter.sendMail(mailOptions);
+      console.log('Deactivation email sent to:', email);
+    } catch (error) {
+      console.error('Error sending deactivation email:', error);
+      throw error;
     }
+  }
 
-    /**
-     * Send OTP email for login
-     */
-    async sendOTPEmail(
-        email: string,
-        otp: string | number,
-        firstName?: string,
-        expiryMinutes: number = 10
-    ): Promise<void> {
-        try {
-            const mailOptions: SendMailOptions = {
-                from: this.from,
-                to: email,
-                subject: 'Your Login OTP Code',
-                html: `
+  /**
+   * Send OTP email for login
+   */
+  async sendOTPEmail(
+    email: string,
+    otp: string | number,
+    firstName?: string,
+    expiryMinutes: number = 10
+  ): Promise<void> {
+    try {
+      const mailOptions: SendMailOptions = {
+        from: this.from,
+        to: email,
+        subject: 'Your Login OTP Code',
+        html: `
           <!DOCTYPE html>
           <html>
           <head>
@@ -309,29 +309,116 @@ export class EmailService {
           </body>
           </html>
         `
-            };
+      };
 
-            await this.transporter.sendMail(mailOptions);
-            console.log('OTP email sent to:', email);
-        } catch (error) {
-            console.error('Error sending OTP email:', error);
-            throw error;
-        }
+      await this.transporter.sendMail(mailOptions);
+      console.log('OTP email sent to:', email);
+    } catch (error) {
+      console.error('Error sending OTP email:', error);
+      throw error;
     }
+  }
 
-    /**
-     * Verify email configuration
-     */
-    async verifyConnection(): Promise<boolean> {
-        try {
-            await this.transporter.verify();
-            console.log('Email service is ready to send emails');
-            return true;
-        } catch (error) {
-            console.error('Email service verification failed:', error);
-            return false;
-        }
+  /**
+   * Send OTP email for forgot password
+   */
+  async sendOTPForgotPassword(
+    email: string,
+    otp: string | number,
+    firstName?: string,
+    expiryMinutes: number = 10
+  ): Promise<void> {
+    try {
+      const mailOptions: SendMailOptions = {
+        from: this.from,
+        to: email,
+        subject: 'Your Password Reset OTP Code',
+        html: `
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <style>
+              body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+              .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+              .header { background-color: #f44336; color: white; padding: 20px; text-align: center; }
+              .content { padding: 20px; background-color: #f9f9f9; }
+              .otp-box { 
+                background-color: #fff; 
+                border: 2px dashed #f44336; 
+                padding: 20px; 
+                text-align: center; 
+                margin: 20px 0;
+                border-radius: 8px;
+              }
+              .otp-code { 
+                font-size: 36px; 
+                font-weight: bold; 
+                color: #f44336; 
+                letter-spacing: 8px;
+                font-family: 'Courier New', monospace;
+              }
+              .warning { 
+                background-color: #fff3cd; 
+                border-left: 4px solid #ffc107; 
+                padding: 10px; 
+                margin: 15px 0; 
+              }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <div class="header">
+                <h1>🔐 Password Reset OTP</h1>
+              </div>
+              <div class="content">
+                <h2>Hi ${firstName || 'there'}!</h2>
+                <p>We received a request to reset your password. Use the code below to continue:</p>
+                
+                <div class="otp-box">
+                  <div class="otp-code">${otp}</div>
+                  <p style="margin-top: 10px; color: #666;">Enter this code to reset your password</p>
+                </div>
+
+                <div class="warning">
+                  <strong>⚠️ Important:</strong>
+                  <ul style="margin: 5px 0;">
+                    <li>This OTP will expire in <strong>${expiryMinutes} minutes</strong></li>
+                    <li>Valid for <strong>3 attempts</strong> only</li>
+                    <li>Never share this code with anyone</li>
+                    <li>If you didn't request this, please ignore this email</li>
+                  </ul>
+                </div>
+
+                <p style="margin-top: 20px;">If you're having trouble resetting your password, please contact our support team.</p>
+                <p>Best regards,<br>The Team</p>
+              </div>
+            </div>
+          </body>
+          </html>
+        `
+      };
+
+      await this.transporter.sendMail(mailOptions);
+      console.log('OTP email sent to:', email);
+    } catch (error) {
+      console.error('Error sending OTP email:', error);
+      throw error;
     }
+  }
+
+  /**
+   * Verify email configuration
+   */
+  async verifyConnection(): Promise<boolean> {
+    try {
+      await this.transporter.verify();
+      console.log('Email service is ready to send emails');
+      return true;
+    } catch (error) {
+      console.error('Email service verification failed:', error);
+      return false;
+    }
+  }
 }
 
 export default EmailService;

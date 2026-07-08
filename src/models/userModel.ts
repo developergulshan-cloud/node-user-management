@@ -16,7 +16,7 @@ export class UserModel {
 
   public async findUserByEmail(email: string): Promise<UmUser | null> {
     const [rows] = await this.pool.query<(UmUser & RowDataPacket)[]>(
-      'SELECT id, email, password, first_name, last_name, is_active, reset_token, reset_token_expiry, created_at, updated_at FROM um_users WHERE email = ? LIMIT 1',
+      'SELECT id, email, password, name, is_active, reset_token, reset_token_expiry, created_at, updated_at FROM um_users WHERE email = ? LIMIT 1',
       [email]
     );
     return rows[0] ?? null;
@@ -24,7 +24,7 @@ export class UserModel {
 
   public async findUserById(id: number): Promise<UmUser | null> {
     const [rows] = await this.pool.query<(UmUser & RowDataPacket)[]>(
-      'SELECT id, email, password, first_name, last_name, is_active, reset_token, reset_token_expiry, created_at, updated_at FROM um_users WHERE id = ? LIMIT 1',
+      'SELECT id, email, password, name, is_active, reset_token, reset_token_expiry, created_at, updated_at FROM um_users WHERE id = ? LIMIT 1',
       [id]
     );
     return rows[0] ?? null;
@@ -74,6 +74,16 @@ export class UserModel {
     await this.pool.query('DELETE FROM um_otps WHERE id = ?', [record.id]);
     return true;
   }
+
+  public async updatePassword(email: string, passwordHash: string): Promise<boolean> {
+    const [result] = await this.pool.query(
+      'UPDATE um_users SET password = ? WHERE email = ? LIMIT 1',
+      [passwordHash, email.toLowerCase()]
+    );
+
+    const affectedRows = (result as { affectedRows?: number }).affectedRows ?? 0;
+    return affectedRows > 0;
+  }
 }
 
 let defaultModel: UserModel | null = null;
@@ -100,4 +110,9 @@ export async function saveOtp(email: string, otp: string, purpose: string = 'log
 export async function verifyOtp(email: string, otp: string, purpose: string = 'login'): Promise<boolean> {
   if (!defaultModel) throw new Error('UserModel not initialized. Call initUserModel(pool) first.');
   return defaultModel.verifyOtp(email, otp, purpose);
+}
+
+export async function updatePassword(email: string, passwordHash: string): Promise<boolean> {
+  if (!defaultModel) throw new Error('UserModel not initialized. Call initUserModel(pool) first.');
+  return defaultModel.updatePassword(email, passwordHash);
 }
