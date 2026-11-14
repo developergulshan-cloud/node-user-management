@@ -1,4 +1,4 @@
-import { RowDataPacket } from 'mysql2';
+import { ResultSetHeader, RowDataPacket } from 'mysql2';
 import { Pool } from 'mysql2/promise';
 import { UmUser } from '../types/user';
 
@@ -28,6 +28,18 @@ export class UserModel {
       [id]
     );
     return rows[0] ?? null;
+  }
+
+  public async createGoogleUser(email: string, name: string | null, passwordHash: string): Promise<UmUser> {
+    const [result] = await this.pool.query<ResultSetHeader>(
+      'INSERT INTO um_users (email, password, name, is_active) VALUES (?, ?, ?, 1)',
+      [email, passwordHash, name]
+    );
+    const user = await this.findUserById(result.insertId);
+    if (!user) {
+      throw new Error('Google user was created but could not be loaded');
+    }
+    return user;
   }
 
   public async saveOtp(email: string, otp: string, purpose: string = 'login', expiryMinutes: number = 10): Promise<void> {
@@ -103,6 +115,11 @@ export async function findUserByEmail(email: string): Promise<UmUser | null> {
 export async function findUserById(id: number): Promise<UmUser | null> {
   if (!defaultModel) throw new Error('UserModel not initialized. Call initUserModel(pool) first.');
   return defaultModel.findUserById(id);
+}
+
+export async function createGoogleUser(email: string, name: string | null, passwordHash: string): Promise<UmUser> {
+  if (!defaultModel) throw new Error('UserModel not initialized. Call initUserModel(pool) first.');
+  return defaultModel.createGoogleUser(email, name, passwordHash);
 }
 
 export async function saveOtp(email: string, otp: string, purpose: string = 'login', expiryMinutes: number = 10): Promise<void> {

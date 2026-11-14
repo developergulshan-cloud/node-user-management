@@ -7,4 +7,10 @@ declare global {
   }
 }
 
+declare module 'express-session' {
+  interface SessionData {
+    googleAuthMode?: 'login' | 'signup';
+  }
+}
+
 export {};

@@ -3,13 +3,12 @@
 A Node.js and TypeScript API for user authentication and session management.
 It uses Express, Passport local and Google authentication, MySQL, and
 server-side sessions. The authentication routes support password login,
-Google login for existing accounts, email OTP login, and password reset by
-email OTP.
+Google signup and login, email OTP login, and password reset by email OTP.
 
 ## Features
 
 - Email and password authentication using bcrypt password hashes.
-- Google OAuth login for existing accounts with verified Google email addresses.
+- Google OAuth signup and login with verified Google email addresses.
 - Session-based authentication with Passport and a MySQL-backed session store.
 - OTP login and OTP-based password reset.
 - CSRF protection for authentication and OTP request endpoints.
@@ -107,22 +106,26 @@ token. Obtain one from `GET /api/auth/csrf-token` and send it in the
 The password-login, OTP-login, and password-reset flows require a logged-out
 session. Run them separately, or log out and start a fresh cookie jar before
 trying another flow.
-Google login is a browser-based OAuth redirect rather than a JSON request:
-open `/api/auth/google` in the browser, complete Google's consent/sign-in, and
-the callback returns the signed-in user as JSON while setting the session
-cookie. The authenticated session is saved to `um_sessions` before the success
-response is sent. The cookie value is delivered in the `Set-Cookie` response
-header (`connect.sid`), not in the JSON body; browsers store it automatically,
-and cURL can store it in a cookie jar. The Google account must have a verified
-email that already exists in `um_users`, and the account must be active.
-Google login does not create or link user accounts.
+Google signup and login are browser-based OAuth redirects rather than JSON
+requests. Open `/api/auth/google/signup` to create an account or
+`/api/auth/google/login` to sign in, complete Google's consent/sign-in, and the
+callback returns the signed-in user as JSON while setting the session cookie.
+The authenticated session is saved to `um_sessions` before the success response
+is sent. The cookie value is delivered in the `Set-Cookie` response header
+(`connect.sid`), not in the JSON body; browsers store it automatically, and
+cURL can store it in a cookie jar. Signup rejects an email that already has an
+account; login rejects an email that has no account. Both require a verified
+Google email, and inactive accounts are rejected. `/api/auth/google` remains
+available as an alias for Google login.
 
 | Method | Path | Description | Authentication |
 |---|---|---|---|
 | `GET` | `/health` | Health check | Public |
 | `GET` | `/api/auth/csrf-token` | Creates/returns a CSRF token | Public |
-| `GET` | `/api/auth/google` | Start Google OAuth login | Public; OAuth state checked |
-| `GET` | `/api/auth/google/callback` | Complete Google login and set session | Google OAuth callback |
+| `GET` | `/api/auth/google/signup` | Start Google OAuth signup | Public; OAuth state checked |
+| `GET` | `/api/auth/google/login` | Start Google OAuth login | Public; OAuth state checked |
+| `GET` | `/api/auth/google` | Legacy alias for Google OAuth login | Public; OAuth state checked |
+| `GET` | `/api/auth/google/callback` | Complete Google signup/login and set session | Google OAuth callback |
 | `POST` | `/api/auth/login` | Sign in with email and password | Public; CSRF required |
 | `POST` | `/api/auth/request-otp` | Email an OTP for login | Public; CSRF required |
 | `POST` | `/api/auth/login-with-otp` | Sign in with an emailed login OTP | Public; CSRF required |
@@ -175,12 +178,13 @@ Example success response:
 The returned user object does not contain the password. Invalid credentials
 return `401`.
 
-### Google login
+### Google signup and login
 
-Open this URL in a browser to start Google's sign-in and consent flow:
+Open the relevant URL in a browser to start Google's sign-in and consent flow:
 
 ```text
-http://localhost:3000/api/auth/google
+http://localhost:3000/api/auth/google/signup
+http://localhost:3000/api/auth/google/login
 ```
 
 After successful authentication, Google redirects back to
@@ -199,11 +203,12 @@ cookie using the `Set-Cookie` header, and returns:
 }
 ```
 
-Only an existing, active user with a verified Google email can sign in. The
-callback responds with `401` if no matching account exists or authentication
-fails. cURL can request the initial redirect, but completing Google consent
-requires an interactive browser. Once signed in, the browser keeps the session
-cookie automatically; use a cookie jar for subsequent cURL requests:
+Signup creates an active account only when the verified email has no matching
+user; login only succeeds for an existing account. Inactive users and Google
+accounts without a verified email cannot sign in. cURL can request the initial
+redirect, but completing Google consent requires an interactive browser. Once
+signed in, the browser keeps the session cookie automatically; use a cookie jar
+for subsequent cURL requests:
 
 ```powershell
 curl.exe -i -b google-cookies.txt "$BaseUrl/api/auth/profile"
