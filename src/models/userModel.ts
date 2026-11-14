@@ -16,7 +16,7 @@ export class UserModel {
 
   public async findUserByEmail(email: string): Promise<UmUser | null> {
     const [rows] = await this.pool.query<(UmUser & RowDataPacket)[]>(
-      'SELECT id, email, password, name, is_active, reset_token, reset_token_expiry, created_at, updated_at FROM um_users WHERE email = ? LIMIT 1',
+      'SELECT id, email, password, name, is_active, attrs, reset_token, reset_token_expiry, created_at, updated_at FROM um_users WHERE email = ? LIMIT 1',
       [email]
     );
     return rows[0] ?? null;
@@ -24,7 +24,7 @@ export class UserModel {
 
   public async findUserById(id: number): Promise<UmUser | null> {
     const [rows] = await this.pool.query<(UmUser & RowDataPacket)[]>(
-      'SELECT id, email, password, name, is_active, reset_token, reset_token_expiry, created_at, updated_at FROM um_users WHERE id = ? LIMIT 1',
+      'SELECT id, email, password, name, is_active, attrs, reset_token, reset_token_expiry, created_at, updated_at FROM um_users WHERE id = ? LIMIT 1',
       [id]
     );
     return rows[0] ?? null;
@@ -44,19 +44,22 @@ export class UserModel {
 
   public async verifyOtp(email: string, otp: string, purpose: string = 'login'): Promise<boolean> {
     const [rows] = await this.pool.query<(OtpRecord & RowDataPacket)[]>(
-      'SELECT id, email, otp, purpose, expires_at, attempts FROM um_otps WHERE email = ? LIMIT 1',
-      [email.toLowerCase()]
+      'SELECT id, email, otp, purpose, expires_at, attempts FROM um_otps WHERE email = ? AND purpose = ? LIMIT 1',
+      [email.toLowerCase(), purpose]
     );
 
-    const record: any = rows[0];
+    const record = rows[0];
     if (!record) {
       return false;
     }
 
+    const expiresAt = record.expires_at === null
+      ? Number.NaN
+      : record.expires_at instanceof Date
+        ? record.expires_at.getTime()
+        : new Date(record.expires_at).getTime();
 
-    const expiresAt = record.expires_at.getTime();
-
-    if (expiresAt <= Date.now()) {
+    if (!Number.isFinite(expiresAt) || expiresAt <= Date.now()) {
       await this.pool.query('DELETE FROM um_otps WHERE id = ?', [record.id]);
       return false;
     }

@@ -23,8 +23,7 @@
                 "password"
             ],
             "validation": {
-                "first_name": "required|string|min:1|max:100",
-                "last_name": "string|max:100",
+                "name": "required|string|min:1|max:255",
                 "email": "required|email|max:255",
                 "password": "required|string|min:6|max:255"
             }
@@ -85,7 +84,9 @@
             ],
             "columns": [
                 "name",
-                "email"
+                "email",
+                "attrs",
+                "is_active"
             ],
             "params": [
                 {
@@ -94,13 +95,9 @@
                 }
             ],
             "validation": {
-                "first_name": "string|max:100",
-                "last_name": "string|max:100",
+                "name": "string|max:255",
                 "email": "email|max:255",
-                "phone": "string|max:20",
-                "gender": "string|max:10",
-                "date_of_birth": "date",
-                "address": "string"
+                "is_active": "boolean"
             }
         },
         {
@@ -127,8 +124,8 @@
                 "description"
             ],
             "validation": {
-                "name": "required|string|max:100",
-                "description": "string|max:255"
+                "name": "required|string|max:50",
+                "description": "string"
             }
         },
         {
@@ -151,8 +148,8 @@
                 "description"
             ],
             "validation": {
-                "name": "string|max:100",
-                "description": "string|max:255"
+                "name": "string|max:50",
+                "description": "string"
             }
         },
         {
@@ -176,37 +173,11 @@
             "table": "um_permissions",
             "columns": [
                 "name",
-                "description",
-                "module",
-                "action"
+                "um_roles_id"
             ],
             "validation": {
-                "name": "required|string|max:100",
-                "description": "string|max:255",
-                "module": "required|string|max:100",
-                "action": "required|string|max:50"
-            }
-        },
-        {
-            "id": "create-permission",
-            "name": "Create Permission",
-            "description": "Create a new permission in the system",
-            "endpoint": "/permissions",
-            "method": "POST",
-            "type": "CRUD",
-            "operation": "CREATE",
-            "table": "um_permissions",
-            "columns": [
-                "name",
-                "description",
-                "module",
-                "action"
-            ],
-            "validation": {
-                "name": "required|string|max:100",
-                "description": "string|max:255",
-                "module": "required|string|max:100",
-                "action": "required|string|max:50"
+                "name": "required|string|max:45",
+                "um_roles_id": "number"
             }
         },
         {
@@ -275,7 +246,7 @@
             ],
             "filters": [
                 "email",
-                "first_name"
+                "name"
             ],
             "pagination": false
         },
@@ -355,15 +326,11 @@
             ],
             "columns": [
                 "name",
-                "description",
-                "module",
-                "action"
+                "um_roles_id"
             ],
             "validation": {
-                "name": "string|max:100",
-                "description": "string|max:255",
-                "module": "string|max:100",
-                "action": "string|max:50"
+                "name": "string|max:45",
+                "um_roles_id": "number"
             }
         },
         {

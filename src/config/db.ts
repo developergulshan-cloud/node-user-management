@@ -53,6 +53,7 @@ import mysql, { Pool, PoolOptions, RowDataPacket, OkPacket, ResultSetHeader } fr
 
 interface DatabaseConfig {
   host?: string;
+  port?: number;
   user?: string;
   password?: string;
   database?: string;
@@ -69,7 +70,7 @@ class DatabaseConnection {
 
   constructor(config: DatabaseConfig) {
     this.config = {
-      port: 3306,
+      port: config.port ?? 3306,
       host: config.host ?? 'localhost',
       user: config.user ?? 'root',
       password: config.password ?? '',
@@ -82,7 +83,7 @@ class DatabaseConnection {
 
   async initialize(): Promise<void> {
     try {
-      console.log('Initializing database connection...',this.config);
+      console.log('Initializing database connection...');
       this.pool = mysql.createPool(this.config);
       await this.createTables();
       console.log('Database initialized successfully');
@@ -95,12 +96,12 @@ class DatabaseConnection {
   private async createTables(): Promise<void> {
     const createUsersTable = `
       CREATE TABLE IF NOT EXISTS um_users (
-        id VARCHAR(36) PRIMARY KEY,
+        id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
         email VARCHAR(255) UNIQUE NOT NULL,
         password VARCHAR(255) NOT NULL,
-        first_name VARCHAR(100),
-        last_name VARCHAR(100),
-        is_active BOOLEAN DEFAULT true,
+        name VARCHAR(255),
+        is_active TINYINT(1) DEFAULT 1,
+        attrs JSON,
         reset_token VARCHAR(255),
         reset_token_expiry DATETIME,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -112,16 +113,18 @@ class DatabaseConnection {
 
     const createSessionsTable = `
       CREATE TABLE IF NOT EXISTS um_sessions (
+        id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
         session_id VARCHAR(128) COLLATE utf8mb4_bin NOT NULL,
-        expires INT(11) UNSIGNED NOT NULL,
+        expires INT NOT NULL,
         data MEDIUMTEXT COLLATE utf8mb4_bin,
-        PRIMARY KEY (session_id)
+        um_sessionscol VARCHAR(45),
+        UNIQUE KEY unique_session_id (session_id)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     `;
 
     const createOTPsTable = `
       CREATE TABLE IF NOT EXISTS um_otps (
-        id INT AUTO_INCREMENT PRIMARY KEY,
+        id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
         email VARCHAR(255) NOT NULL,
         otp VARCHAR(10) NOT NULL,
         purpose VARCHAR(50) NOT NULL DEFAULT 'login',
@@ -136,25 +139,45 @@ class DatabaseConnection {
 
     const createRolesTable = `
       CREATE TABLE IF NOT EXISTS um_roles (
-        id VARCHAR(36) PRIMARY KEY,
+        id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
         name VARCHAR(50) UNIQUE NOT NULL,
         description TEXT,
-        permissions JSON NOT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         INDEX idx_name (name)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     `;
 
+    const createPoliciesTable = `
+      CREATE TABLE IF NOT EXISTS um_policies (
+        id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        name VARCHAR(45) NOT NULL,
+        effect INT NOT NULL,
+        conditions JSON
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `;
+
+    const createPermissionsTable = `
+      CREATE TABLE IF NOT EXISTS um_permissions (
+        id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        name VARCHAR(45) NOT NULL,
+        um_roles_id BIGINT,
+        INDEX idx_um_roles_id (um_roles_id),
+        FOREIGN KEY (um_roles_id) REFERENCES um_roles(id) ON DELETE CASCADE
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `;
+
     const createUserRolesTable = `
       CREATE TABLE IF NOT EXISTS um_user_roles (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        user_id VARCHAR(36) NOT NULL,
-        role_id VARCHAR(36) NOT NULL,
+        id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        user_id BIGINT NOT NULL,
+        role_id BIGINT NOT NULL,
         assigned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        UNIQUE KEY unique_user_role (user_id, role_id),
+        um_policies_id BIGINT,
+        UNIQUE KEY unique_user_role_policy (user_id, role_id, um_policies_id),
         FOREIGN KEY (user_id) REFERENCES um_users(id) ON DELETE CASCADE,
         FOREIGN KEY (role_id) REFERENCES um_roles(id) ON DELETE CASCADE,
+        FOREIGN KEY (um_policies_id) REFERENCES um_policies(id) ON DELETE CASCADE,
         INDEX idx_user_id (user_id),
         INDEX idx_role_id (role_id)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -169,6 +192,8 @@ class DatabaseConnection {
       await this.pool.query(createSessionsTable);
       await this.pool.query(createOTPsTable);
       await this.pool.query(createRolesTable);
+      await this.pool.query(createPoliciesTable);
+      await this.pool.query(createPermissionsTable);
       await this.pool.query(createUserRolesTable);
     } catch (error) {
       console.error('Error creating tables:', error);

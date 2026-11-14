@@ -81,7 +81,6 @@ export class AppServer {
 
   private configureRoutes() {
     this.app.use('/api/auth', authRoutes);
-
     this.app.get('/health', (_req: Request, res: Response) => {
       res.json({ success: true, message: 'OK' });
     });
@@ -95,13 +94,13 @@ export class AppServer {
         user: this.databaseConfig?.user,
         password: this.databaseConfig?.password,
         database: this.databaseConfig?.database,
-        port: 3306,
+        port: this.databaseConfig?.port,
       },
       apis: mysqlapis.apis,
     };
 
     const mysqlApiConfig = dabApi(mysqlconfig).router;
-    // this.app.use('/api', mysqlApiConfig);
+    this.app.use('/api', mysqlApiConfig);
     return mysqlApiConfig;
   }
 
@@ -113,16 +112,22 @@ export class AppServer {
     });
   }
 }
- 
+
 
 // Preserve existing startup behavior when file is run directly
 if (require.main === module) {
-  let databaseConfig: DatabaseConfig = {
-    "host": "127.0.0.1",
-    "user": "gulshan",
-    "password": "Gulshan@814144",
-    "database": "user_management",
+  const databaseConfig: DatabaseConfig = {
+    host: process.env.DB_HOST,
+    port: process.env.DB_PORT ? Number(process.env.DB_PORT) : undefined,
+    user: process.env.DB_USER,
+    password: process.env.DB_PASSWORD,
+    database: process.env.DB_NAME,
   };
+
+  if (databaseConfig.port !== undefined &&
+    (!Number.isInteger(databaseConfig.port) || databaseConfig.port < 1 || databaseConfig.port > 65535)) {
+    throw new Error('DB_PORT must be an integer between 1 and 65535');
+  }
 
   const sessionConfig: SessionConfig = {
     name: 'connect.sid',

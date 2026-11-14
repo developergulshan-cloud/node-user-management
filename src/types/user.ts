@@ -3,7 +3,7 @@ export interface UmUser {
   email: string;
   password: string;
   name: string | null;
-
+  attrs: Record<string, unknown> | null;
   is_active: number | null;
   reset_token: string | null;
   reset_token_expiry: Date | null;
