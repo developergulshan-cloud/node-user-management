@@ -6,7 +6,7 @@ import { DatabaseConfig, DatabaseConnection } from './config/db';
 
 import { SessionStore } from './config/session';
 import { initUserModel } from './models/userModel';
-import passport from './config/passport';
+import passport, { configureGoogleStrategy } from './config/passport';
 import authRoutes from './routes/authRoutes';
 import dabApi from 'dynamic-api-builder-js';
 import { DabConfig, DabRouterOptions } from 'dynamic-api-builder-js';
@@ -41,6 +41,7 @@ export class AppServer {
 
     // Initialize user model with the same DB pool
     initUserModel(this.dbConnection.getPool());
+    configureGoogleStrategy();
 
     this.configureMiddleware();
     this.configureRoutes();

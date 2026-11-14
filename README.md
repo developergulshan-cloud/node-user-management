@@ -1,13 +1,15 @@
 # User Management API
 
 A Node.js and TypeScript API for user authentication and session management.
-It uses Express, Passport local authentication, MySQL, and server-side sessions.
-The authentication routes support password login, email OTP login, and
-password reset by email OTP.
+It uses Express, Passport local and Google authentication, MySQL, and
+server-side sessions. The authentication routes support password login,
+Google login for existing accounts, email OTP login, and password reset by
+email OTP.
 
 ## Features
 
 - Email and password authentication using bcrypt password hashes.
+- Google OAuth login for existing accounts with verified Google email addresses.
 - Session-based authentication with Passport and a MySQL-backed session store.
 - OTP login and OTP-based password reset.
 - CSRF protection for authentication and OTP request endpoints.
@@ -21,6 +23,7 @@ password reset by email OTP.
 - npm.
 - MySQL with a database and a user that can create tables and indexes.
 - An SMTP account for OTP email delivery.
+- A Google OAuth 2.0 web client to enable Google login (optional).
 
 ## Getting started
 
@@ -74,10 +77,25 @@ Expected response:
 | `SMTP_PASS` | SMTP password | Set for OTP email |
 | `EMAIL_FROM` | Sender address for OTP email | Set for OTP email |
 | `APP_URL` | Application URL used by email templates | Set for OTP email |
+| `GOOGLE_CLIENT_ID` | Google OAuth web client ID | Optional |
+| `GOOGLE_CLIENT_SECRET` | Google OAuth web client secret | Optional |
+| `GOOGLE_CALLBACK_URL` | OAuth callback URL registered with Google | `http://localhost:3000/api/auth/google/callback` |
 
 Use your own values in `.env`; do not commit credentials. The app currently
 falls back to `dev-secret` if `SESSION_SECRET` is not set, so configure a
 strong secret before deploying.
+
+### Configure Google OAuth
+
+1. Create a **Web application** OAuth client in the Google Cloud Console and
+   configure its OAuth consent screen.
+2. Add the exact value of `GOOGLE_CALLBACK_URL` to the client's **Authorized
+   redirect URIs**. For local development, use
+   `http://localhost:3000/api/auth/google/callback`.
+3. Set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` in `.env`, and set
+   `GOOGLE_CALLBACK_URL` if the server is not using the local development URL.
+4. Restart the server. Google login is disabled when both client credentials
+   are absent; if only one is set, startup fails with a configuration error.
 
 ## API endpoints
 
@@ -89,11 +107,22 @@ token. Obtain one from `GET /api/auth/csrf-token` and send it in the
 The password-login, OTP-login, and password-reset flows require a logged-out
 session. Run them separately, or log out and start a fresh cookie jar before
 trying another flow.
+Google login is a browser-based OAuth redirect rather than a JSON request:
+open `/api/auth/google` in the browser, complete Google's consent/sign-in, and
+the callback returns the signed-in user as JSON while setting the session
+cookie. The authenticated session is saved to `um_sessions` before the success
+response is sent. The cookie value is delivered in the `Set-Cookie` response
+header (`connect.sid`), not in the JSON body; browsers store it automatically,
+and cURL can store it in a cookie jar. The Google account must have a verified
+email that already exists in `um_users`, and the account must be active.
+Google login does not create or link user accounts.
 
 | Method | Path | Description | Authentication |
 |---|---|---|---|
 | `GET` | `/health` | Health check | Public |
 | `GET` | `/api/auth/csrf-token` | Creates/returns a CSRF token | Public |
+| `GET` | `/api/auth/google` | Start Google OAuth login | Public; OAuth state checked |
+| `GET` | `/api/auth/google/callback` | Complete Google login and set session | Google OAuth callback |
 | `POST` | `/api/auth/login` | Sign in with email and password | Public; CSRF required |
 | `POST` | `/api/auth/request-otp` | Email an OTP for login | Public; CSRF required |
 | `POST` | `/api/auth/login-with-otp` | Sign in with an emailed login OTP | Public; CSRF required |
@@ -145,6 +174,40 @@ Example success response:
 
 The returned user object does not contain the password. Invalid credentials
 return `401`.
+
+### Google login
+
+Open this URL in a browser to start Google's sign-in and consent flow:
+
+```text
+http://localhost:3000/api/auth/google
+```
+
+After successful authentication, Google redirects back to
+`/api/auth/google/callback`. The callback verifies the OAuth state and the
+Google email, persists the session in `um_sessions`, sets the `connect.sid`
+cookie using the `Set-Cookie` header, and returns:
+
+```json
+{
+  "success": true,
+  "user": {
+    "id": 1,
+    "email": "user@example.com",
+    "name": "Example User"
+  }
+}
+```
+
+Only an existing, active user with a verified Google email can sign in. The
+callback responds with `401` if no matching account exists or authentication
+fails. cURL can request the initial redirect, but completing Google consent
+requires an interactive browser. Once signed in, the browser keeps the session
+cookie automatically; use a cookie jar for subsequent cURL requests:
+
+```powershell
+curl.exe -i -b google-cookies.txt "$BaseUrl/api/auth/profile"
+```
 
 ### Get the current profile
 
@@ -266,6 +329,7 @@ database with a migration before deploying if its tables do not match the ERD.
   MySQL session persistence.
 - **passport** and **passport-local** — Local email/password authentication and
   session integration.
+- **passport-google-oauth20** — Google OAuth 2.0 authentication strategy.
 - **bcryptjs** — Password hash verification and password-reset hashing.
 - **csurf** — CSRF token generation and validation.
 - **nodemailer** — SMTP delivery of login and password-reset OTPs.
@@ -299,11 +363,10 @@ unless those paths are aligned.
 ## Dynamic API configuration
 
 `src/api-config.json` contains CRUD, transaction, and function endpoint
-definitions, including user, role, and permission examples. `app.ts` creates a
-router from this configuration, but its `app.use('/api', mysqlApiConfig)`
-mount is currently commented out. Those configured endpoints are therefore
-not available from the running app as it stands. The routes listed in this
-README are the routes currently mounted by the application.
+definitions, including user, role, and permission examples. `app.ts` mounts
+the generated router at `/api`, so configured endpoints are available there
+alongside the separately mounted `/api/auth` routes. See
+`src/api-config.json` for the configured operations and their request fields.
 
 ## Security notes
 

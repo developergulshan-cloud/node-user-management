@@ -1,6 +1,6 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import * as bcrypt from 'bcryptjs';
-import passport from '../config/passport';
+import passport, { isGoogleOAuthConfigured } from '../config/passport';
 import { findUserByEmail, saveOtp, updatePassword, verifyOtp } from '../models/userModel';
 import { SafeUser, toSafeUser } from '../types/user';
 import { isAuthenticated, csrfProtection, sanitizeInput, isNotAuthenticated, validateEmail, validatePassword } from '../middleware/auth';
@@ -8,6 +8,52 @@ import EmailService from '../sevices/emailService';
 import { generateOtpCode } from '../utils/otp';
 
 const router = Router();
+
+router.get('/google',
+  isNotAuthenticated,
+  (req: Request, res: Response, next: NextFunction) => {
+    if (!isGoogleOAuthConfigured()) {
+      return res.status(503).json({ success: false, message: 'Google login is not configured' });
+    }
+    return next();
+  },
+  passport.authenticate('google', { scope: ['profile', 'email'] })
+);
+
+router.get('/google/callback',
+  (req: Request, res: Response, next: NextFunction) => {
+    if (!isGoogleOAuthConfigured()) {
+      return res.status(503).json({ success: false, message: 'Google login is not configured' });
+    }
+
+    return passport.authenticate(
+      'google',
+      (err: Error | null, user: SafeUser | false, info: { message: string } | undefined) => {
+        if (err) {
+          return next(err);
+        }
+        if (!user) {
+          return res.status(401).json({
+            success: false,
+            message: info?.message || 'Google authentication failed',
+          });
+        }
+
+        return req.logIn(user, (loginErr) => {
+          if (loginErr) {
+            return next(loginErr);
+          }
+          return req.session.save((saveError) => {
+            if (saveError) {
+              return next(saveError);
+            }
+            return res.json({ success: true, user });
+          });
+        });
+      }
+    )(req, res, next);
+  }
+);
 
 // Get CSRF token
 router.get('/csrf-token', csrfProtection, (req, res) => {
