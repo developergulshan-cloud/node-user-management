@@ -1,11 +1,12 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import * as bcrypt from 'bcryptjs';
 import passport, { isGoogleOAuthConfigured } from '../config/passport';
-import { findUserByEmail, saveOtp, updatePassword, verifyOtp } from '../models/userModel';
+import { deleteAuthSession, findUserByEmail, saveOtp, updatePassword, verifyOtp } from '../models/userModel';
 import { SafeUser, toSafeUser } from '../types/user';
-import { isAuthenticated, csrfProtection, sanitizeInput, isNotAuthenticated, validateEmail, validatePassword } from '../middleware/auth';
+import { isAuthenticated, sanitizeInput, isNotAuthenticated, validateEmail, validatePassword } from '../middleware/auth';
 import EmailService from '../sevices/emailService';
 import { generateOtpCode } from '../utils/otp';
+import { createAuthToken, readAuthToken } from '../utils/authToken';
 
 const router = Router();
 
@@ -54,40 +55,28 @@ router.get('/google/callback',
           });
         }
 
-        return req.logIn(user, (loginErr) => {
-          if (loginErr) {
-            return next(loginErr);
-          }
-          return req.session.save((saveError) => {
+        return req.session.save((saveError) => {
             if (saveError) {
               return next(saveError);
             }
-            return res.json({ success: true, user });
+            return createAuthToken(user.id)
+              .then((token) => res.json({ success: true, user, token }))
+              .catch(next);
           });
-        });
       }
     )(req, res, next);
   }
 );
 
-// Get CSRF token
-router.get('/csrf-token', csrfProtection, (req, res) => {
-  res.json({
-    success: true,
-    csrfToken: req.csrfToken()
-  });
-});
-
 router.post('/login',
   sanitizeInput,
-  csrfProtection,
   isNotAuthenticated,
   (req: Request, res: Response, next: NextFunction) => {
     passport.authenticate(
       'local',
       (err: Error | null, user: SafeUser | false, info: { message: string } | undefined) => {
         if (err) {
-          return next(err);
+          return next(err.message ? new Error(err.message) : 'An error occurred during authentication');
         }
         if (!user) {
           return res.status(401).json({
@@ -96,19 +85,15 @@ router.post('/login',
           });
         }
 
-        req.logIn(user, (loginErr) => {
-          if (loginErr) {
-            return next(loginErr);
-          }
-          return res.json({ success: true, user });
-        });
+        return createAuthToken(user.id)
+          .then((token) => res.json({ success: true, user, token }))
+          .catch(next);
       }
     )(req, res, next);
   });
 
 router.post('/request-otp',
   sanitizeInput,
-  csrfProtection,
   isNotAuthenticated,
   async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -141,7 +126,6 @@ router.post('/request-otp',
 
 router.post('/forgot-password',
   sanitizeInput,
-  csrfProtection,
   isNotAuthenticated,
   async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -170,7 +154,6 @@ router.post('/forgot-password',
 
 router.post('/reset-password-with-otp',
   sanitizeInput,
-  csrfProtection,
   isNotAuthenticated,
   async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -215,7 +198,6 @@ router.post('/reset-password-with-otp',
 
 router.post('/login-with-otp',
   sanitizeInput,
-  csrfProtection,
   isNotAuthenticated,
   async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -245,30 +227,25 @@ router.post('/login-with-otp',
       }
 
       const safeUser = toSafeUser(user);
-      req.logIn(safeUser, (loginErr) => {
-        if (loginErr) {
-          return next(loginErr);
-        }
-        return res.json({ success: true, user: safeUser });
-      });
+      const token = await createAuthToken(safeUser.id);
+      return res.json({ success: true, user: safeUser, token });
     } catch (error) {
       return next(error);
     }
   });
 
-router.post('/logout', (req: Request, res: Response, next: NextFunction) => {
-  req.logout((err) => {
-    if (err) {
-      return next(err);
+router.post('/logout', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const match = req.get('Authorization')?.match(/^Bearer\s+(\S+)$/i);
+    const claims = match ? readAuthToken(match[1], true) : null;
+    if (!claims) {
+      return res.status(401).json({ success: false, message: 'A valid bearer token is required to log out' });
     }
-    req.session.destroy((destroyErr) => {
-      if (destroyErr) {
-        return next(destroyErr);
-      }
-      res.clearCookie('connect.sid');
-      return res.json({ success: true, message: 'Logged out' });
-    });
-  });
+    await deleteAuthSession(claims.sessionId);
+    return res.json({ success: true, message: 'Logged out' });
+  } catch (error) {
+    return next(error);
+  }
 });
 
 router.get('/profile', isAuthenticated, (req: Request, res: Response) => {

@@ -38,11 +38,13 @@
             "type": "CRUD",
             "operation": "READ",
             "table": "um_users",
+            "customQuery": "SELECT * FROM um_users WHERE id = ?",
             "columns": [
                 "*"
             ],
             "filters": [
-                "email"
+                "email",
+                "is_active"
             ],
             "pagination": true
         },

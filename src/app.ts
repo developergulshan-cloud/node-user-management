@@ -56,7 +56,7 @@ export class AppServer {
     this.app.use(
       cors({
         origin: true,
-        credentials: true,
+        credentials: false,
       })
     );
 

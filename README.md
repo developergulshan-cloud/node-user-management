@@ -1,17 +1,16 @@
 # User Management API
 
-A Node.js and TypeScript API for user authentication and session management.
+A Node.js and TypeScript API for user authentication and management.
 It uses Express, Passport local and Google authentication, MySQL, and
-server-side sessions. The authentication routes support password login,
+signed bearer tokens. The authentication routes support password login,
 Google signup and login, email OTP login, and password reset by email OTP.
 
 ## Features
 
 - Email and password authentication using bcrypt password hashes.
 - Google OAuth signup and login with verified Google email addresses.
-- Session-based authentication with Passport and a MySQL-backed session store.
+- Header-based authentication with signed bearer tokens.
 - OTP login and OTP-based password reset.
-- CSRF protection for authentication and OTP request endpoints.
 - A MySQL schema initializer for the user-management tables in the ERD.
 - A JSON API configuration for CRUD and other operations (see
   [Dynamic API configuration](#dynamic-api-configuration)).
@@ -67,7 +66,8 @@ Expected response:
 | `DB_USER` | MySQL username | `root` |
 | `DB_PASSWORD` | MySQL password | Set locally |
 | `DB_NAME` | MySQL database name | `user_management` |
-| `SESSION_SECRET` | Secret used to sign session cookies | Set a long, unique secret |
+| `AUTH_TOKEN_SECRET` | Secret used to sign bearer tokens | Set a long, unique secret |
+| `SESSION_SECRET` | Secret used for Google OAuth state sessions | Set a long, unique secret |
 | `NODE_ENV` | Environment name | `development` |
 | `PORT` | Server port setting shown in `.env.example` | The current app still listens on `3000`; this variable is not read yet |
 | `SMTP_HOST` | SMTP server hostname | Set for OTP email |
@@ -99,21 +99,16 @@ strong secret before deploying.
 ## API endpoints
 
 All authentication endpoints are prefixed with `/api/auth`.
-JSON request bodies should use `Content-Type: application/json`.
-Except for logout, the POST authentication and OTP endpoints require a CSRF
-token. Obtain one from `GET /api/auth/csrf-token` and send it in the
-`X-CSRF-Token` header along with the cookie set by that request.
-The password-login, OTP-login, and password-reset flows require a logged-out
-session. Run them separately, or log out and start a fresh cookie jar before
-trying another flow.
+JSON request bodies should use `Content-Type: application/json`. Successful
+password, OTP, and Google sign-in responses include a signed `token`. Send it
+on protected requests as `Authorization: Bearer <token>`. Tokens expire after
+24 hours; logout invalidates the token and deletes its session row. Google OAuth
+uses a temporary session for its state handshake; API authentication is
+validated from the Authorization header.
 Google signup and login are browser-based OAuth redirects rather than JSON
 requests. Open `/api/auth/google/signup` to create an account or
 `/api/auth/google/login` to sign in, complete Google's consent/sign-in, and the
-callback returns the signed-in user as JSON while setting the session cookie.
-The authenticated session is saved to `um_sessions` before the success response
-is sent. The cookie value is delivered in the `Set-Cookie` response header
-(`connect.sid`), not in the JSON body; browsers store it automatically, and
-cURL can store it in a cookie jar. Signup rejects an email that already has an
+callback returns the signed-in user and bearer token as JSON. Signup rejects an
 account; login rejects an email that has no account. Both require a verified
 Google email, and inactive accounts are rejected. `/api/auth/google` remains
 available as an alias for Google login.
@@ -121,31 +116,17 @@ available as an alias for Google login.
 | Method | Path | Description | Authentication |
 |---|---|---|---|
 | `GET` | `/health` | Health check | Public |
-| `GET` | `/api/auth/csrf-token` | Creates/returns a CSRF token | Public |
 | `GET` | `/api/auth/google/signup` | Start Google OAuth signup | Public; OAuth state checked |
 | `GET` | `/api/auth/google/login` | Start Google OAuth login | Public; OAuth state checked |
 | `GET` | `/api/auth/google` | Legacy alias for Google OAuth login | Public; OAuth state checked |
-| `GET` | `/api/auth/google/callback` | Complete Google signup/login and set session | Google OAuth callback |
-| `POST` | `/api/auth/login` | Sign in with email and password | Public; CSRF required |
-| `POST` | `/api/auth/request-otp` | Email an OTP for login | Public; CSRF required |
-| `POST` | `/api/auth/login-with-otp` | Sign in with an emailed login OTP | Public; CSRF required |
-| `POST` | `/api/auth/forgot-password` | Email an OTP for password reset | Public; CSRF required |
-| `POST` | `/api/auth/reset-password-with-otp` | Reset password using an OTP | Public; CSRF required |
-| `GET` | `/api/auth/profile` | Return the current authenticated user | Session required |
-| `POST` | `/api/auth/logout` | Destroy the current session | Session cookie; no CSRF middleware currently applied |
-
-### Get a CSRF token
-
-Use one cookie jar for the CSRF cookie and session cookie. These PowerShell
-commands save the CSRF token to `$CsrfToken` so the following examples can be
-copied without manually extracting it:
-
-```powershell
-$BaseUrl = "http://localhost:3000"
-$CsrfResponse = curl.exe -sS -c cookies.txt -b cookies.txt "$BaseUrl/api/auth/csrf-token" | ConvertFrom-Json
-$CsrfToken = $CsrfResponse.csrfToken
-$CsrfToken
-```
+| `GET` | `/api/auth/google/callback` | Complete Google signup/login and return token | Google OAuth callback |
+| `POST` | `/api/auth/login` | Sign in with email and password | Public |
+| `POST` | `/api/auth/request-otp` | Email an OTP for login | Public |
+| `POST` | `/api/auth/login-with-otp` | Sign in with an emailed login OTP | Public |
+| `POST` | `/api/auth/forgot-password` | Email an OTP for password reset | Public |
+| `POST` | `/api/auth/reset-password-with-otp` | Reset password using an OTP | Public |
+| `GET` | `/api/auth/profile` | Return the current authenticated user | Bearer token required |
+| `POST` | `/api/auth/logout` | Revoke the bearer token and delete its session row | Bearer token required |
 
 Health check:
 
@@ -155,11 +136,10 @@ curl.exe -i "$BaseUrl/health"
 
 ### Password login
 
-The response sets an authentication session cookie; `-c` saves it for later
-requests.
+The response includes a bearer token for later requests.
 
 ```powershell
-curl.exe -i -b cookies.txt -c cookies.txt -X POST "$BaseUrl/api/auth/login" -H "Content-Type: application/json" -H "X-CSRF-Token: $CsrfToken" --data-raw '{"email":"user@example.com","password":"YourPassword1"}'
+curl.exe -i -X POST "$BaseUrl/api/auth/login" -H "Content-Type: application/json" --data-raw '{"email":"user@example.com","password":"YourPassword1"}'
 ```
 
 Example success response:
@@ -171,7 +151,8 @@ Example success response:
     "id": 1,
     "email": "user@example.com",
     "name": "Example User"
-  }
+  },
+  "token": "<signed bearer token>"
 }
 ```
 
@@ -188,9 +169,8 @@ http://localhost:3000/api/auth/google/login
 ```
 
 After successful authentication, Google redirects back to
-`/api/auth/google/callback`. The callback verifies the OAuth state and the
-Google email, persists the session in `um_sessions`, sets the `connect.sid`
-cookie using the `Set-Cookie` header, and returns:
+`/api/auth/google/callback`. The callback verifies the OAuth state and email,
+then returns:
 
 ```json
 {
@@ -199,27 +179,27 @@ cookie using the `Set-Cookie` header, and returns:
     "id": 1,
     "email": "user@example.com",
     "name": "Example User"
-  }
+  },
+  "token": "<signed bearer token>"
 }
 ```
 
 Signup creates an active account only when the verified email has no matching
 user; login only succeeds for an existing account. Inactive users and Google
 accounts without a verified email cannot sign in. cURL can request the initial
-redirect, but completing Google consent requires an interactive browser. Once
-signed in, the browser keeps the session cookie automatically; use a cookie jar
-for subsequent cURL requests:
+redirect, but completing Google consent requires an interactive browser. Use
+the returned token for subsequent requests:
 
 ```powershell
-curl.exe -i -b google-cookies.txt "$BaseUrl/api/auth/profile"
+curl.exe -i "$BaseUrl/api/auth/profile" -H "Authorization: Bearer <token>"
 ```
 
 ### Get the current profile
 
-Send the saved session cookie:
+Send the bearer token:
 
 ```powershell
-curl.exe -i -b cookies.txt "$BaseUrl/api/auth/profile"
+curl.exe -i "$BaseUrl/api/auth/profile" -H "Authorization: Bearer <token>"
 ```
 
 An unauthenticated request returns `401`.
@@ -230,15 +210,15 @@ This sends an OTP to the email address belonging to an active user. The
 default OTP expiry is 10 minutes.
 
 ```powershell
-curl.exe -i -b cookies.txt -c cookies.txt -X POST "$BaseUrl/api/auth/request-otp" -H "Content-Type: application/json" -H "X-CSRF-Token: $CsrfToken" --data-raw '{"email":"user@example.com"}'
+curl.exe -i -X POST "$BaseUrl/api/auth/request-otp" -H "Content-Type: application/json" --data-raw '{"email":"user@example.com"}'
 ```
 
 ### Log in with an OTP
 
-Use the OTP received by email and a valid CSRF token:
+Use the OTP received by email:
 
 ```powershell
-curl.exe -i -b cookies.txt -c cookies.txt -X POST "$BaseUrl/api/auth/login-with-otp" -H "Content-Type: application/json" -H "X-CSRF-Token: $CsrfToken" --data-raw '{"email":"user@example.com","otp":"123456"}'
+curl.exe -i -X POST "$BaseUrl/api/auth/login-with-otp" -H "Content-Type: application/json" --data-raw '{"email":"user@example.com","otp":"123456"}'
 ```
 
 OTP verification rejects expired codes and allows at most three failed
@@ -249,23 +229,24 @@ attempts before deleting the code.
 First request a password-reset OTP:
 
 ```powershell
-curl.exe -i -b cookies.txt -c cookies.txt -X POST "$BaseUrl/api/auth/forgot-password" -H "Content-Type: application/json" -H "X-CSRF-Token: $CsrfToken" --data-raw '{"email":"user@example.com"}'
+curl.exe -i -X POST "$BaseUrl/api/auth/forgot-password" -H "Content-Type: application/json" --data-raw '{"email":"user@example.com"}'
 ```
 
 Then submit the OTP and a new password. The password must be at least eight
 characters and contain an uppercase letter, a lowercase letter, and a number:
 
 ```powershell
-curl.exe -i -b cookies.txt -c cookies.txt -X POST "$BaseUrl/api/auth/reset-password-with-otp" -H "Content-Type: application/json" -H "X-CSRF-Token: $CsrfToken" --data-raw '{"email":"user@example.com","otp":"123456","password":"NewPassword1"}'
+curl.exe -i -X POST "$BaseUrl/api/auth/reset-password-with-otp" -H "Content-Type: application/json" --data-raw '{"email":"user@example.com","otp":"123456","password":"NewPassword1"}'
 ```
 
 ### Log out
 
 ```powershell
-curl.exe -i -b cookies.txt -c cookies.txt -X POST "$BaseUrl/api/auth/logout"
+curl.exe -i -X POST "$BaseUrl/api/auth/logout" -H "Authorization: Bearer <token>"
 ```
 
-The endpoint destroys the session and clears the `connect.sid` cookie.
+The token's session record is deleted from `um_sessions`, so it cannot be used
+again. Discard the token on the client as well.
 
 ## Database schema
 
@@ -336,11 +317,11 @@ database with a migration before deploying if its tables do not match the ERD.
   session integration.
 - **passport-google-oauth20** — Google OAuth 2.0 authentication strategy.
 - **bcryptjs** — Password hash verification and password-reset hashing.
-- **csurf** — CSRF token generation and validation.
+- **csurf** — Optional CSRF middleware exported for consumers.
 - **nodemailer** — SMTP delivery of login and password-reset OTPs.
 - **dotenv** — Loads local environment variables from `.env`.
 - **cors** — Cross-origin request handling.
-- **cookie-parser** — Cookie parsing used by the app and CSRF middleware.
+- **cookie-parser** — Cookie parsing for the OAuth state session middleware.
 - **dynamic-api-builder-js** — Builds a router from `src/api-config.json`.
 
 ### Development dependencies
@@ -375,10 +356,11 @@ alongside the separately mounted `/api/auth` routes. See
 
 ## Security notes
 
-- Set a unique, strong `SESSION_SECRET` and keep `.env` out of source control.
-- Use HTTPS in production and configure secure session cookies and proxy
+- Set unique, strong `AUTH_TOKEN_SECRET` and `SESSION_SECRET` values and keep
+  `.env` out of source control.
+- Use HTTPS in production and configure secure OAuth state session cookies and proxy
   handling for the deployment environment.
-- The API stores only the user ID in the session; Passport reloads the user
-  from MySQL when restoring the session.
+- Protected API routes validate a signed, expiring bearer token from the
+  Authorization header.
 - Passwords are stored as bcrypt hashes and are omitted from API responses.
-- Use CSRF tokens for the protected POST endpoints as shown above.
+- Keep bearer tokens out of URLs and store them securely in your client.

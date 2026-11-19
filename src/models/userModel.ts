@@ -99,6 +99,30 @@ export class UserModel {
     const affectedRows = (result as { affectedRows?: number }).affectedRows ?? 0;
     return affectedRows > 0;
   }
+
+  public async createAuthSession(sessionId: string, userId: number, expiresAt: number): Promise<void> {
+    await this.pool.query(
+      'INSERT INTO um_sessions (session_id, expires, data) VALUES (?, ?, ?)',
+      [sessionId, expiresAt, JSON.stringify({ authToken: true, userId })]
+    );
+  }
+
+  public async hasAuthSession(sessionId: string, userId: number): Promise<boolean> {
+    const [rows] = await this.pool.query<(RowDataPacket & { session_id: string })[]>(
+      `SELECT session_id FROM um_sessions
+       WHERE session_id = ? AND expires > UNIX_TIMESTAMP() AND JSON_EXTRACT(data, '$.authToken') = true
+         AND JSON_EXTRACT(data, '$.userId') = ? LIMIT 1`,
+      [sessionId, userId]
+    );
+    return rows.length > 0;
+  }
+
+  public async deleteAuthSession(sessionId: string): Promise<void> {
+    await this.pool.query(
+      `DELETE FROM um_sessions WHERE session_id = ? AND JSON_EXTRACT(data, '$.authToken') = true`,
+      [sessionId]
+    );
+  }
 }
 
 let defaultModel: UserModel | null = null;
@@ -135,4 +159,19 @@ export async function verifyOtp(email: string, otp: string, purpose: string = 'l
 export async function updatePassword(email: string, passwordHash: string): Promise<boolean> {
   if (!defaultModel) throw new Error('UserModel not initialized. Call initUserModel(pool) first.');
   return defaultModel.updatePassword(email, passwordHash);
+}
+
+export async function createAuthSession(sessionId: string, userId: number, expiresAt: number): Promise<void> {
+  if (!defaultModel) throw new Error('UserModel not initialized. Call initUserModel(pool) first.');
+  return defaultModel.createAuthSession(sessionId, userId, expiresAt);
+}
+
+export async function hasAuthSession(sessionId: string, userId: number): Promise<boolean> {
+  if (!defaultModel) throw new Error('UserModel not initialized. Call initUserModel(pool) first.');
+  return defaultModel.hasAuthSession(sessionId, userId);
+}
+
+export async function deleteAuthSession(sessionId: string): Promise<void> {
+  if (!defaultModel) throw new Error('UserModel not initialized. Call initUserModel(pool) first.');
+  return defaultModel.deleteAuthSession(sessionId);
 }

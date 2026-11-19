@@ -1,12 +1,14 @@
 import { Request, Response, NextFunction, RequestHandler } from 'express';
 import csrf from 'csurf';
+import { findUserById, hasAuthSession } from '../models/userModel';
+import { toSafeUser } from '../types/user';
+import { readAuthToken } from '../utils/authToken';
 
 /**
  * Type augmentation notes:
- * - `req.isAuthenticated()` and `req.user` come from Passport.js.
- *   Install `@types/passport` and `@types/express-session`, and Passport's
- *   own d.ts already augments `Express.Request` with `isAuthenticated()`
- *   and `user`. If `req.user` isn't typed the way you need, extend it like:
+ * - `req.user` is populated after the Authorization bearer token is validated.
+ *   Passport's declarations provide the Express user type. If `req.user`
+ *   isn't typed the way you need, extend it like:
  *
  *   declare global {
  *     namespace Express {
@@ -31,27 +33,26 @@ interface ApiResponse {
 /**
  * Middleware to check if user is authenticated
  */
-export const isAuthenticated = (req: Request, res: Response, next: NextFunction): void => {
-    if (req.isAuthenticated()) {
-        return next();
-    }
-    res.status(401).json({
-        success: false,
-        message: 'Authentication required'
-    } as ApiResponse);
+export const isAuthenticated = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+        const match = req.get('Authorization')?.match(/^Bearer\s+(\S+)$/i);
+        const claims = match ? readAuthToken(match[1]) : null;
+        if (claims && await hasAuthSession(claims.sessionId, claims.userId)) {
+            const user = await findUserById(claims.userId);
+            if (user && user.is_active !== 0) {
+                req.user = toSafeUser(user);
+                return next();
+            }
+        }
+        res.status(401).json({ success: false, message: 'Authentication required' } as ApiResponse);
+    } catch (error) { next(error); }
 };
 
 /**
  * Middleware to check if user is not authenticated (for login/register pages)
  */
 export const isNotAuthenticated = (req: Request, res: Response, next: NextFunction): void => {
-    if (!req.isAuthenticated()) {
-        return next();
-    }
-    res.status(400).json({
-        success: false,
-        message: 'Already authenticated'
-    } as ApiResponse);
+    next();
 };
 
 /**
@@ -109,7 +110,7 @@ export const csrfErrorHandler = (
         } as ApiResponse);
         return;
     }
-    next(err);
+    next(err.message ? new Error(err.message) : 'An error occurred');
 };
 
 /**
